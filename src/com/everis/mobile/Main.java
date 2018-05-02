@@ -1,9 +1,10 @@
 package com.everis.mobile;
 
-import java.awt.Checkbox;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -13,6 +14,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.prefs.Preferences;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -20,6 +23,7 @@ import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
@@ -37,6 +41,7 @@ public class Main {
     private static final String PREFS_TRANSLATIONS_PATH = "PREFS_TRANSLATIONS_PATH";
     private static final String PREFS_ANDROID_PATH = "PREFS_ANDROID_PATH";
     private static final String PREFS_IOS_PATH = "PREFS_IOS_PATH";
+    private static final String PREFS_TEMPLATE_LIST = "PREFS_TEMPLATE_LIST";
 
     private JLabel translationsLabel;
     private JCheckBox androidCheckbox;
@@ -49,11 +54,13 @@ public class Main {
     private JButton iosPathButton;
     private JButton copyButton;
     private JComboBox templateComboBox;
-    private JButton newTemplateButton;
+    private JButton saveAsTemplateButton;
     private JPanel mainPanel;
     private JButton testButton;
 
     private final JFileChooser fc = new JFileChooser();
+    private TemplateList mTemplates = new TemplateList();
+    private String mSelectedTemplateKey = null;
 
     public static void main(String[] args) {
         JFrame frame = new JFrame("Main");
@@ -78,11 +85,26 @@ public class Main {
     }
 
     private void updateGui() {
+        updateTemplateSelector();
+
         iosPathTextField.setEnabled(iosCheckbox.isSelected());
         iosPathButton.setEnabled(iosCheckbox.isSelected());
         androidPathTextField.setEnabled(androidCheckbox.isSelected());
         androidPathButton.setEnabled(androidCheckbox.isSelected());
         copyButton.setEnabled(iosCheckbox.isSelected() || androidCheckbox.isSelected());
+    }
+
+    private void updateGuiFromTemplateSelector() {
+        if (mSelectedTemplateKey != null) {
+            CopyTemplate template = mTemplates.templates.get(mSelectedTemplateKey);
+            if (template != null) {
+                translationsPathTextField.setText(template.translationsPath);
+                androidPathTextField.setText(template.androidPath);
+                iosPathTextField.setText(template.iosPath);
+                androidCheckbox.setSelected(template.isAndroidSelected());
+                iosCheckbox.setSelected(template.isIosSelected());
+            }
+        }
     }
 
     public Main() {
@@ -133,6 +155,24 @@ public class Main {
                 test();
             }
         });
+        saveAsTemplateButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                saveAsTemplate();
+            }
+        });
+
+        mTemplateSelectorItemListener = new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    Object item = e.getItem();
+                    mSelectedTemplateKey = (String) item;
+                    updateGuiFromTemplateSelector();
+                    updateGui();
+                }
+            }
+        };
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -143,6 +183,24 @@ public class Main {
 
         loadPreferences();
         updateGui();
+    }
+
+    private void saveAsTemplate() {
+        String text = JOptionPane.showInputDialog(mainPanel, "Please input a name for this template:");
+        if (text != null) {
+            text = text.trim();
+            if (text.length() == 0) {
+                JOptionPane.showMessageDialog(mainPanel, "The name cannot be blank.");
+            } else if (mTemplates.templates.keySet().contains(text)) {
+                JOptionPane.showMessageDialog(mainPanel, "This name is already in use. Please choose another.");
+            } else {
+                mTemplates.templates.put(text, new CopyTemplate(
+                        translationsPathTextField.getText(),
+                        androidCheckbox.isSelected() ? androidPathTextField.getText() : null,
+                        iosCheckbox.isSelected() ? iosPathTextField.getText() : null));
+                updateGui();
+            }
+        }
     }
 
     private void savePreferences() {
@@ -161,6 +219,11 @@ public class Main {
         } else {
             prefs.remove(PREFS_IOS_PATH);
         }
+
+//        GsonBuilder builder = new GsonBuilder();
+//        Gson gson = builder.create();
+//        String templatesJson = gson.toJson(mTemplates);
+//        prefs.put(PREFS_TEMPLATE_LIST, templatesJson);
     }
 
     private void loadPreferences() {
@@ -184,6 +247,32 @@ public class Main {
             iosCheckbox.setSelected(true);
             iosPathTextField.setText(pref);
         }
+
+//        pref = prefs.get(PREFS_TEMPLATE_LIST, null);
+//        if (pref != null) {
+//            GsonBuilder builder = new GsonBuilder();
+//            Gson gson = builder.create();
+//            mTemplates = gson.fromJson(pref, TemplateList.class);
+//        }
+    }
+
+    ItemListener mTemplateSelectorItemListener;
+
+    private void updateTemplateSelector() {
+        templateComboBox.removeItemListener(mTemplateSelectorItemListener);
+
+        templateComboBox.removeAllItems();
+        ArrayList<String> sortedKeys = new ArrayList();
+        sortedKeys.addAll(mTemplates.templates.keySet());
+        Collections.sort(sortedKeys);
+        for (String templateName : sortedKeys) {
+            templateComboBox.addItem(templateName);
+        }
+        if (mSelectedTemplateKey != null) {
+            templateComboBox.setSelectedIndex(sortedKeys.indexOf(mSelectedTemplateKey));
+        }
+
+        templateComboBox.addItemListener(mTemplateSelectorItemListener);
     }
 
     private String getLogFileName(int platformId) {
