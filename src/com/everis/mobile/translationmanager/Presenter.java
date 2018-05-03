@@ -1,8 +1,8 @@
 package com.everis.mobile.translationmanager;
 
+import com.everis.mobile.translationmanager.model.CommandUtils;
+import com.everis.mobile.translationmanager.model.FileUtils;
 import com.everis.mobile.translationmanager.model.LanguageUtils;
-import com.everis.mobile.translationmanager.model.OSValidator;
-import com.everis.mobile.translationmanager.model.StreamGobbler;
 import com.everis.mobile.translationmanager.model.entities.CopyTemplate;
 import com.everis.mobile.translationmanager.model.entities.TemplateList;
 import com.google.gson.Gson;
@@ -11,14 +11,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,28 +20,17 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
 public class Presenter {
 
-    private static final int OS_MACOS = 0;
-    private static final int OS_WINDOWS = 1;
-    private static final int PLATFORM_ANDROID = 0;
-    private static final int PLATFORM_IOS = 1;
-    private static final String NAME_ANDROID = "android";
-    private static final String NAME_IOS = "ios";
-
-    private static final String LOG_FILE_FORMAT = "keylist_%s.txt";
-
     private static final String PREFS_TRANSLATIONS_PATH = "PREFS_TRANSLATIONS_PATH";
     private static final String PREFS_ANDROID_PATH = "PREFS_ANDROID_PATH";
     private static final String PREFS_IOS_PATH = "PREFS_IOS_PATH";
     private static final String PREFS_TEMPLATE_LIST = "PREFS_TEMPLATE_LIST";
 
-    private JLabel translationsLabel;
     private JCheckBox androidCheckbox;
     private JCheckBox iosCheckbox;
     private JTextField translationsPathTextField;
@@ -63,49 +45,10 @@ public class Presenter {
     private JPanel mainPanel;
     private JButton helpButton;
 
-    private final JFileChooser fc = new JFileChooser();
+    private final JFileChooser mFileChooser = new JFileChooser();
     private TemplateList mTemplates = new TemplateList();
     private String mSelectedTemplateKey = null;
-
-    public JPanel getMainPanel() {
-        return mainPanel;
-    }
-
-    private void openFileChooser(String title, String initialPath, JTextField textFieldToUpdate) {
-        fc.setCurrentDirectory(new java.io.File((initialPath == null || initialPath.length() == 0) ? "." : initialPath));
-        fc.setDialogTitle(title);
-        fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        fc.setAcceptAllFileFilterUsed(false);
-
-        int returnVal = fc.showOpenDialog(null);
-        if (returnVal == JFileChooser.APPROVE_OPTION) {
-            File file = fc.getSelectedFile();
-            textFieldToUpdate.setText(file.getAbsolutePath());
-        }
-    }
-
-    private void updateGui() {
-        updateTemplateSelector();
-
-        iosPathTextField.setEnabled(iosCheckbox.isSelected());
-        iosPathButton.setEnabled(iosCheckbox.isSelected());
-        androidPathTextField.setEnabled(androidCheckbox.isSelected());
-        androidPathButton.setEnabled(androidCheckbox.isSelected());
-        copyButton.setEnabled(iosCheckbox.isSelected() || androidCheckbox.isSelected());
-    }
-
-    private void updateGuiFromTemplateSelector() {
-        if (mSelectedTemplateKey != null) {
-            CopyTemplate template = mTemplates.templates.get(mSelectedTemplateKey);
-            if (template != null) {
-                translationsPathTextField.setText(template.translationsPath);
-                androidPathTextField.setText(template.androidPath);
-                iosPathTextField.setText(template.iosPath);
-                androidCheckbox.setSelected(template.isAndroidSelected());
-                iosCheckbox.setSelected(template.isIosSelected());
-            }
-        }
-    }
+    private ItemListener mTemplateSelectorItemListener;
 
     public Presenter() {
         translationsPathButton.addActionListener(new ActionListener() {
@@ -129,11 +72,7 @@ public class Presenter {
         copyButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                try {
-                    performCopy();
-                } catch (IOException e1) {
-                    e1.printStackTrace();
-                }
+                performPlatformCopy();
             }
         });
         iosCheckbox.addActionListener(new ActionListener() {
@@ -183,6 +122,67 @@ public class Presenter {
 
         loadPreferences();
         updateGui();
+    }
+
+    public JPanel getMainPanel() {
+        return mainPanel;
+    }
+
+    private void openFileChooser(String title, String initialPath, JTextField textFieldToUpdate) {
+        mFileChooser.setCurrentDirectory(new java.io.File((initialPath == null || initialPath.length() == 0) ? "." : initialPath));
+        mFileChooser.setDialogTitle(title);
+        mFileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        mFileChooser.setAcceptAllFileFilterUsed(false);
+
+        int returnVal = mFileChooser.showOpenDialog(null);
+        if (returnVal == JFileChooser.APPROVE_OPTION) {
+            File file = mFileChooser.getSelectedFile();
+            textFieldToUpdate.setText(file.getAbsolutePath());
+        }
+    }
+
+    private void showHelp() {
+        JOptionPane.showMessageDialog(mainPanel, LanguageUtils.getInstance().getString("input_help"));
+    }
+
+    private void updateGui() {
+        updateTemplateSelector();
+
+        iosPathTextField.setEnabled(iosCheckbox.isSelected());
+        iosPathButton.setEnabled(iosCheckbox.isSelected());
+        androidPathTextField.setEnabled(androidCheckbox.isSelected());
+        androidPathButton.setEnabled(androidCheckbox.isSelected());
+        copyButton.setEnabled(iosCheckbox.isSelected() || androidCheckbox.isSelected());
+    }
+
+    private void updateGuiFromTemplateSelector() {
+        if (mSelectedTemplateKey != null) {
+            CopyTemplate template = mTemplates.templates.get(mSelectedTemplateKey);
+            if (template != null) {
+                translationsPathTextField.setText(template.translationsPath);
+                androidPathTextField.setText(template.androidPath);
+                iosPathTextField.setText(template.iosPath);
+                androidCheckbox.setSelected(template.isAndroidSelected());
+                iosCheckbox.setSelected(template.isIosSelected());
+            }
+        }
+    }
+
+    private void updateTemplateSelector() {
+        templateComboBox.removeItemListener(mTemplateSelectorItemListener);
+
+        templateComboBox.removeAllItems();
+        ArrayList<String> sortedKeys = new ArrayList();
+        sortedKeys.addAll(mTemplates.templates.keySet());
+        Collections.sort(sortedKeys);
+        for (String templateName : sortedKeys) {
+            templateComboBox.addItem(templateName);
+        }
+        if (mSelectedTemplateKey != null) {
+            templateComboBox.setSelectedIndex(sortedKeys.indexOf(mSelectedTemplateKey));
+        }
+
+        templateComboBox.addItemListener(mTemplateSelectorItemListener);
     }
 
     private void saveAsTemplate() {
@@ -256,216 +256,42 @@ public class Presenter {
         }
     }
 
-    ItemListener mTemplateSelectorItemListener;
-
-    private void updateTemplateSelector() {
-        templateComboBox.removeItemListener(mTemplateSelectorItemListener);
-
-        templateComboBox.removeAllItems();
-        ArrayList<String> sortedKeys = new ArrayList();
-        sortedKeys.addAll(mTemplates.templates.keySet());
-        Collections.sort(sortedKeys);
-        for (String templateName : sortedKeys) {
-            templateComboBox.addItem(templateName);
-        }
-        if (mSelectedTemplateKey != null) {
-            templateComboBox.setSelectedIndex(sortedKeys.indexOf(mSelectedTemplateKey));
-        }
-
-        templateComboBox.addItemListener(mTemplateSelectorItemListener);
-    }
-
-    private String getLogFileName(int platformId) {
-        return String.format(LOG_FILE_FORMAT, getNameForOs(platformId));
-    }
-
     private void generateStrings(File translationsPath, int platformId) {
-        executeCommandWithArgs(getGenerateScriptFilePath(), translationsPath.getAbsolutePath(), getNameForOs(platformId));
+        CommandUtils.executeCommandWithArgs(FileUtils.getGenerateScriptFilePath(), translationsPath.getAbsolutePath(), FileUtils.getNameForOs(platformId));
     }
 
-    private String getGenerateScriptFilePath() {
-        String res = "";
 
-        if (OSValidator.isMac()) {
-            res = "assets/scripts/generate.sh";
-        } else if (OSValidator.isWindows()) {
-            res = "assets/scripts/generate.bat";
+    private void performPlatformCopy() {
+        final File translationsPath = new File(translationsPathTextField.getText());
+
+        if (androidCheckbox.isSelected()) {
+            performPlatformCopy(translationsPath, FileUtils.PLATFORM_ANDROID);
         }
 
-        return res;
-    }
-
-    private void copyStrings(File translationsPath, int platformId) throws IOException {
-        copyFolder(new File(Paths.get(translationsPath.getAbsolutePath(), getNameForOs(platformId)).toString()), new File(Paths.get(getDestinationPathForOs(platformId).getAbsolutePath()).toString()));
-    }
-
-    private String getNameForOs(int platformId) {
-        String res = "";
-
-        switch (platformId) {
-            case PLATFORM_ANDROID:
-                res = NAME_ANDROID;
-                break;
-
-            case PLATFORM_IOS:
-                res = NAME_IOS;
-                break;
+        if (iosCheckbox.isSelected()) {
+            performPlatformCopy(translationsPath, FileUtils.PLATFORM_IOS);
         }
+    }
 
-        return res;
+    private void performPlatformCopy(File translationsPath, int platformId) {
+        generateStrings(translationsPath, platformId);
+        FileUtils.deleteLogFile(translationsPath, platformId);
+        CommandUtils.copyFolder(new File(Paths.get(translationsPath.getAbsolutePath(), FileUtils.getNameForOs(platformId)).toString()), new File(Paths.get(getDestinationPathForOs(platformId).getAbsolutePath()).toString()));
     }
 
     private File getDestinationPathForOs(int platformId) {
         File res = null;
 
         switch (platformId) {
-            case PLATFORM_ANDROID:
+            case FileUtils.PLATFORM_ANDROID:
                 res = new File(androidPathTextField.getText());
                 break;
 
-            case PLATFORM_IOS:
+            case FileUtils.PLATFORM_IOS:
                 res = new File(iosPathTextField.getText());
                 break;
         }
 
         return res;
-    }
-
-    private void performCopy() throws IOException {
-        final File translationsPath = new File(translationsPathTextField.getText());
-
-        if (androidCheckbox.isSelected()) {
-            generateStrings(translationsPath, PLATFORM_ANDROID);
-            deleteLogFile(translationsPath, PLATFORM_ANDROID);
-            copyStrings(translationsPath, PLATFORM_ANDROID);
-        }
-
-        if (iosCheckbox.isSelected()) {
-            generateStrings(translationsPath, PLATFORM_IOS);
-            deleteLogFile(translationsPath, PLATFORM_IOS);
-            copyStrings(translationsPath, PLATFORM_IOS);
-        }
-    }
-
-    private void showHelp() {
-        JOptionPane.showMessageDialog(mainPanel, LanguageUtils.getInstance().getString("input_help"));
-    }
-
-    private void deleteLogFile(File translationsPath, int platformId) {
-        new File(Paths.get(translationsPath.getAbsolutePath(), getNameForOs(platformId)).toString(), getLogFileName(platformId)).delete();
-    }
-
-    private void executeCommandWithArgs(String... args) {
-        try {
-            Runtime rt = Runtime.getRuntime();
-            Process proc = rt.exec(args);
-            InputStream stderr = proc.getErrorStream();
-            InputStreamReader isr = new InputStreamReader(stderr);
-            BufferedReader br = new BufferedReader(isr);
-            String line = null;
-            StringBuilder sb = new StringBuilder();
-            while ((line = br.readLine()) != null) {
-                sb.append(line + "\n");
-            }
-
-            int exitVal = proc.waitFor();
-            System.out.println("Process exitValue: " + exitVal);
-
-            if (sb.length() > 0) {
-                System.out.println("<ERROR>");
-                System.out.println(sb.toString());
-                System.out.println("</ERROR>");
-            }
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-    }
-
-    private void copyFolder(File source, File destination) {
-        if (source.isDirectory()) {
-            if (!destination.exists()) {
-                destination.mkdirs();
-            }
-
-            String files[] = source.list();
-
-            for (String file : files) {
-                File srcFile = new File(source, file);
-                File destFile = new File(destination, file);
-
-                copyFolder(srcFile, destFile);
-            }
-        } else {
-            InputStream in = null;
-            OutputStream out = null;
-
-            try {
-                in = new FileInputStream(source);
-                out = new FileOutputStream(destination);
-
-                byte[] buffer = new byte[1024];
-
-                int length;
-                while ((length = in.read(buffer)) > 0) {
-                    out.write(buffer, 0, length);
-                }
-            } catch (Exception e) {
-                try {
-                    in.close();
-                } catch (IOException e1) {
-                    e1.printStackTrace();
-                }
-
-                try {
-                    out.close();
-                } catch (IOException e1) {
-                    e1.printStackTrace();
-                }
-            }
-        }
-    }
-
-    private void executeCommand(String command) {
-        try {
-            Runtime rt = Runtime.getRuntime();
-            Process proc = rt.exec(command);
-            InputStream stderr = proc.getErrorStream();
-            InputStreamReader isr = new InputStreamReader(stderr);
-            BufferedReader br = new BufferedReader(isr);
-            String line = null;
-            System.out.println("<ERROR>");
-            while ((line = br.readLine()) != null)
-                System.out.println(line);
-            System.out.println("</ERROR>");
-            int exitVal = proc.waitFor();
-            System.out.println("Process exitValue: " + exitVal);
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-    }
-
-    private void executeCommand(String... args) {
-        assert (args.length < 1);
-
-        try {
-            String cmd = args[0];
-            Runtime rt = Runtime.getRuntime();
-            Process proc = rt.exec(args);
-
-            StreamGobbler errorGobbler = new StreamGobbler(proc.getErrorStream(), "ERR");
-            StreamGobbler outputGobbler = new StreamGobbler(proc.getInputStream(), "OUT");
-
-            errorGobbler.start();
-            outputGobbler.start();
-
-            int exitVal = proc.waitFor();
-            System.out.println("ExitValue: " + exitVal);
-        } catch (Throwable t) {
-            t.printStackTrace();
-        }
-    }
-
-    private void createUIComponents() {
-        // TODO: place custom component creation code here
     }
 }
