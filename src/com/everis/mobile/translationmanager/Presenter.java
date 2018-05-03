@@ -1,9 +1,10 @@
-package com.everis.mobile;
+package com.everis.mobile.translationmanager;
 
-import com.everis.mobile.model.OSValidator;
-import com.everis.mobile.model.StreamGobbler;
-import com.everis.mobile.model.entities.CopyTemplate;
-import com.everis.mobile.model.entities.TemplateList;
+import com.everis.mobile.translationmanager.model.LanguageUtils;
+import com.everis.mobile.translationmanager.model.OSValidator;
+import com.everis.mobile.translationmanager.model.StreamGobbler;
+import com.everis.mobile.translationmanager.model.entities.CopyTemplate;
+import com.everis.mobile.translationmanager.model.entities.TemplateList;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.awt.event.ActionEvent;
@@ -110,19 +111,19 @@ public class Presenter {
         translationsPathButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                openFileChooser("Translations Project", translationsPathTextField.getText(), translationsPathTextField);
+                openFileChooser(LanguageUtils.getInstance().getString("label_translations_project"), translationsPathTextField.getText(), translationsPathTextField);
             }
         });
         androidPathButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                openFileChooser("Android Project", androidPathTextField.getText(), androidPathTextField);
+                openFileChooser(LanguageUtils.getInstance().getString("label_android_project"), androidPathTextField.getText(), androidPathTextField);
             }
         });
         iosPathButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                openFileChooser("iOS Project", iosPathTextField.getText(), iosPathTextField);
+                openFileChooser(LanguageUtils.getInstance().getString("label_ios_project"), iosPathTextField.getText(), iosPathTextField);
             }
         });
         copyButton.addActionListener(new ActionListener() {
@@ -185,13 +186,13 @@ public class Presenter {
     }
 
     private void saveAsTemplate() {
-        String text = JOptionPane.showInputDialog(mainPanel, "Please input a name for this template:");
+        String text = JOptionPane.showInputDialog(mainPanel, LanguageUtils.getInstance().getString("input_save_template"));
         if (text != null) {
             text = text.trim();
             if (text.length() == 0) {
-                JOptionPane.showMessageDialog(mainPanel, "The name cannot be blank.");
+                JOptionPane.showMessageDialog(mainPanel, LanguageUtils.getInstance().getString("input_save_template_error_empty"));
             } else if (mTemplates.templates.keySet().contains(text)) {
-                JOptionPane.showMessageDialog(mainPanel, "This name is already in use. Please choose another.");
+                JOptionPane.showMessageDialog(mainPanel, LanguageUtils.getInstance().getString("input_save_template_error_duplicate"));
             } else {
                 mTemplates.templates.put(text, new CopyTemplate(
                         translationsPathTextField.getText(),
@@ -347,7 +348,7 @@ public class Presenter {
     }
 
     private void showHelp() {
-        JOptionPane.showMessageDialog(mainPanel, "Help (to be added)");
+        JOptionPane.showMessageDialog(mainPanel, LanguageUtils.getInstance().getString("input_help"));
     }
 
     private void deleteLogFile(File translationsPath, int platformId) {
@@ -462,5 +463,9 @@ public class Presenter {
         } catch (Throwable t) {
             t.printStackTrace();
         }
+    }
+
+    private void createUIComponents() {
+        // TODO: place custom component creation code here
     }
 }

@@ -1,4 +1,4 @@
-package com.everis.mobile;
+package com.everis.mobile.translationmanager;
 
 import javax.swing.JFrame;
 

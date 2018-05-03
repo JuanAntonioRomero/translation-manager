@@ -1,4 +1,4 @@
-package com.everis.mobile.model.entities;
+package com.everis.mobile.translationmanager.model.entities;
 
 public class CopyTemplate {
     public String translationsPath;

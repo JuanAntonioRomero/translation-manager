@@ -1,4 +1,4 @@
-package com.everis.mobile.model;
+package com.everis.mobile.translationmanager.model;
 
 public class OSValidator {
 

@@ -1,4 +1,4 @@
-package com.everis.mobile.model;
+package com.everis.mobile.translationmanager.model;
 
 import java.io.BufferedReader;
 import java.io.IOException;
